@@ -32,7 +32,7 @@ main() {
   test("Pool w/ shareable connections", () {
     var size = 3;
     var pool = new ConnPool(size, true);
-    var fConns = [];
+    var fConns = <Future<ManagedConnection<Conn>>>[];
     var conns = null;
 
     for (var i = 0; i < size * 2; i++) {
@@ -64,7 +64,7 @@ main() {
   test("Pool w/ exclusive connections", () {
     var size = 3;
     var pool = new ConnPool(size, false);
-    var fConns = [];
+    var fConns = <Future<ManagedConnection<Conn>>>[];
     var conns = null;
 
     for (var i = 0; i < size; i++) {

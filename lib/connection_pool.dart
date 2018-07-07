@@ -12,7 +12,7 @@ part 'package:connection_pool/src/strategies.dart';
  * and provide the [openNewConnection] and [closeConnection] methods.
  */
 abstract class ConnectionPool<T> {
-  _Strategy _strategy;
+  _Strategy<T> _strategy;
 
   /**
    * Create a new connection pool.
@@ -24,9 +24,9 @@ abstract class ConnectionPool<T> {
    */
   ConnectionPool(int poolSize, {bool shareableConnections: true}) {
     if (shareableConnections) {
-      _strategy = new _ShareableConnectionsStrategy(poolSize);
+      _strategy = new _ShareableConnectionsStrategy<T>(poolSize);
     } else {
-      _strategy = new _ExclusiveConnectionsStrategy(poolSize);
+      _strategy = new _ExclusiveConnectionsStrategy<T>(poolSize);
     }
   }
 
@@ -45,7 +45,7 @@ abstract class ConnectionPool<T> {
    */
   Future<ManagedConnection<T>> getConnection() {
     return _strategy.getConnection(
-        () => openNewConnection().then((conn) => _wrapConn(conn)));
+        () => openNewConnection().then((conn) => _wrapConn<T>(conn)));
   }
 
   /**

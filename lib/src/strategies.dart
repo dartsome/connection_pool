@@ -1,35 +1,35 @@
 part of connection_pool;
 
-typedef Future<ManagedConnection> _ConnCreator();
+typedef Future<ManagedConnection<T>> _ConnCreator<T>();
 
 typedef void _ConnDestroyer(dynamic conn);
 
-abstract class _Strategy {
-  Future<ManagedConnection> getConnection(_ConnCreator connCreator);
+abstract class _Strategy<T> {
+  Future<ManagedConnection<T>> getConnection(_ConnCreator<T> connCreator);
 
   void releaseConnection(
-      _ConnDestroyer connDestroyer, ManagedConnection conn, bool markAsInvalid);
+      _ConnDestroyer connDestroyer, ManagedConnection<T> conn, bool markAsInvalid);
 
   Future closeConnections(_ConnDestroyer connDestroyer);
 }
 
-class _ShareableConnectionsStrategy implements _Strategy {
+class _ShareableConnectionsStrategy<T> implements _Strategy<T> {
   final int _poolSize;
-  List<Future<ManagedConnection>> _pool;
+  List<Future<ManagedConnection<T>>> _pool;
   int _pointer = 0;
   final Map<int, int> _connMap = {};
 
   _ShareableConnectionsStrategy(this._poolSize) {
-    _pool = new List(_poolSize);
+    _pool = new List<Future<ManagedConnection<T>>>(_poolSize);
   }
 
-  Future<ManagedConnection> getConnection(_ConnCreator connCreator) {
+  Future<ManagedConnection<T>> getConnection(_ConnCreator<T> connCreator) async {
     int idx = _pointer++ % _poolSize;
     var conn = _pool[idx];
     if (conn != null) {
       return conn;
     }
-    var completer = new Completer();
+    var completer = new Completer<ManagedConnection<T>>();
     _pool[idx] = completer.future;
     connCreator().then((conn) {
       _connMap[conn.connId] = idx;
@@ -39,6 +39,7 @@ class _ShareableConnectionsStrategy implements _Strategy {
       completer.completeError(ex);
       _pool[idx] = null;
     });
+
     return completer.future;
   }
 
@@ -64,7 +65,7 @@ class _ShareableConnectionsStrategy implements _Strategy {
   }
 }
 
-class _ExclusiveConnectionsStrategy implements _Strategy {
+class _ExclusiveConnectionsStrategy<T> implements _Strategy<T> {
   final int _poolSize;
   List<_LockableConn> _pool;
   Queue<Completer> _callbacks = new Queue();
@@ -74,11 +75,11 @@ class _ExclusiveConnectionsStrategy implements _Strategy {
     _pool = new List(_poolSize);
   }
 
-  Future<ManagedConnection> getConnection(_ConnCreator connCreator) {
+  Future<ManagedConnection<T>> getConnection(_ConnCreator<T> connCreator) {
     for (var i = 0; i < _poolSize; i++) {
       var connLock = _pool[i];
       if (connLock == null) {
-        var completer = new Completer();
+        var completer = new Completer<ManagedConnection<T>>();
         connCreator().then((conn) {
           _connMap[conn.connId] = i;
           completer.complete(conn);
@@ -95,7 +96,7 @@ class _ExclusiveConnectionsStrategy implements _Strategy {
       }
     }
 
-    var completer = new Completer();
+    var completer = new Completer<ManagedConnection<T>>();
     _callbacks.add(completer);
     return completer.future;
   }
@@ -143,5 +144,5 @@ class _LockableConn {
 
 int _nextId = 0;
 
-ManagedConnection _wrapConn(dynamic conn) =>
+ManagedConnection<T> _wrapConn<T>(T conn) =>
     new ManagedConnection(_nextId++, conn);
